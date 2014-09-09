@@ -4,10 +4,11 @@
 using namespace std;
 
 char *itoa(int in){
-  char tmp[10];
-  while(in/=10){
-    strcat(tmp,(char)(in%10 + '0'));
-  }
+  string tmp;
+  char out[20];
+  tmp= itos(in);
+  strcpy(out,tmp.c_str);
+  return out;
 }
 
 void dispacher(zmsg_t *in_msg, zmsg_t *out_msg ){
@@ -21,41 +22,48 @@ void dispacher(zmsg_t *in_msg, zmsg_t *out_msg ){
     b = atoi(zmsg_popstr(in_msg)) + a;
     zmsg_addstr(out_msg,itoa(b));
   }
-  if(strcmp(tmp,"-") == 0)
-  if(strcmp(tmp,"*") == 0)
-  if(strcmp(tmp,"/") == 0)
-
+  if(strcmp(tmp,"-") == 0){
+    a = atoi(zmsg_popstr(in_msg));
+    b = a - atoi(zmsg_popstr(in_msg));
+    zmsg_addstr(out_msg,itoa(b));
+  }
+  if(strcmp(tmp,"*") == 0){
+    a = atoi(zmsg_popstr(in_msg));
+    b = atoi(zmsg_popstr(in_msg)) * a;
+    zmsg_addstr(out_msg,itoa(b));
+  }
+  if(strcmp(tmp,"/") == 0){
+    a = atoi(zmsg_popstr(in_msg));
+    b = atoi(zmsg_popstr(in_msg));
+    if(b == 0){ 
+      zmsg_addstr(out_msg,"division por cero");
+      return;
+    }
+    zmsg_addstr(out_msg,itoa(a/b));
+  }
+  zframe_destroy(&wh);
 }
 
 int main(void) {
   zctx_t* context = zctx_new();
+  void* client = zsocket_new(context,ZMQ_DEALER);
   void* server = zsocket_new(context,ZMQ_ROUTER);
   zsocket_bind(server, "tcp://*:5555");
+  zsocket_bind(client, "tcp://localhost:5555");
 
+  zmsg_t *outmsg;
+  zframe_t *identity = zsocket_identity(client); 
+  
   int i = 0;
   while(true) {
-    zmsg_t *msg = zmsg_recv(server);
+    zmsg_t *outmsg,*inmsg = zmsg_recv(server);
     // Print the massage on the server's console
     zmsg_print(msg);
-
-    zframe_t *identity = zmsg_pop(msg);
-    zframe_t *content = zmsg_pop(msg);
-    assert(content);
-    zmsg_destroy(&msg);
-
-    zclock_sleep(2000);
-
-    if (i % 5 == 0) {
-      cout << "I'll answer this one!\n";
-      zframe_send(&identity, server, ZFRAME_REUSE + ZFRAME_MORE);
-      zframe_send(&content, server, ZFRAME_REUSE);
-    } else {
-      cout << "Skipping request\n";
-    }
-    i++;
-
-    zframe_destroy(&identity);
-    zframe_destroy(&content);
+    
+    dispatcher(inmsg,outmsg);
+    zmsg_send(outsmg,sever);
+    zmsg_destroy(&inmsg);
+    zmsg_destroy(&outmsg)
   }
   zctx_destroy(&context);
   return 0;
