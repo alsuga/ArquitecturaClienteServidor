@@ -13,27 +13,21 @@ int main(int argc, char** argv) {
     zsocket_set_identity(client,identity);
   }
   
-  cout << "client identity: " << zsocket_identity(client) << endl;
-
   zsocket_connect(client, "tcp://localhost:5555");
 
-  zmq_pollitem_t items[] = {{client, 0, ZMQ_POLLIN, 0}};
-  int request_nbr = 0;
+  zmq_pollitem_t item = {client, 0, ZMQ_POLLIN, 0};
+  
+  string in;
 
   while(true) {
-    zmq_poll(items,1,10*ZMQ_POLL_MSEC);
-    if(items[0].revents & ZMQ_POLLIN) {
-      // This is executed if there is data in the client socket that corresponds
-      // to items[0]
-      cout << "Incomming message:\n";
+    zmq_poll(&item,1,10*ZMQ_POLL_MSEC);
+    if(item.revents & ZMQ_POLLIN) {
       zmsg_t *msg = zmsg_recv(client);
       zmsg_print(msg);
-      // zframe_print(zmsg_last(msg), identity);
       zmsg_destroy(&msg);      
     }
-
-    zstr_sendf(client, "request #%d", request_nbr);
-    request_nbr++;
+    cin>>in;
+    zstr_send(client, in.c_str);
   }
   zctx_destroy(&context);
   return 0;
