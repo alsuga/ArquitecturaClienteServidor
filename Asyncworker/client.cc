@@ -1,14 +1,14 @@
 #include <bits/stdc++.h>
 #include <czmq.h>
 
+#define endl '\n'
+
 using namespace std;
 
 int main(int argc, char** argv) {
 
   zctx_t* context = zctx_new();
-<<<<<<< HEAD
   void* server = zsocket_new(context,ZMQ_DEALER);
-  //cout << "client identity: " << zsocket_identity(client) << endl;
 
   zsocket_connect(server, "tcp://localhost:5555");
   zmsg_t *msg = zmsg_new();
@@ -21,14 +21,13 @@ int main(int argc, char** argv) {
   while(true) {
     zmq_poll(items,1,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN) {
-      cout << "Ya llego!!:\n";
+      cout << "Ya llego!!:"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
       zmsg_print(incmsg);
       zmsg_destroy(&incmsg);
       zmsg_destroy(&msg);
       break;
     }
-=======
   void* client = zsocket_new(context,ZMQ_DEALER);
 
   if (argc > 1) {
@@ -51,7 +50,6 @@ int main(int argc, char** argv) {
     }
     cin>>in;
     zstr_send(client, in.c_str);
->>>>>>> 6106ae2c78a487c0f3cc49d547c6fabbd00f76fd
   }
   zctx_destroy(&context);
   return 0;
