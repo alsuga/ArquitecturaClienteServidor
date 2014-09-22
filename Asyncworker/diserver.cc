@@ -1,21 +1,16 @@
-#include <iostream>
-#include <set>
-#include <string>
+#include <bits/stdc++.h>
 #include <czmq.h>
-#include <string.h>
 
 using namespace std;
 
 int main(void) {
   zctx_t* context = zctx_new();
-  void* server = zsocket_new(context,ZMQ_ROUTER);
+  void* clients = zsocket_new(context,ZMQ_ROUTER);
   zsocket_bind(server, "tcp://*:5555");
-  void* client = zsocket_new(context,ZMQ_DEALER);
+  void* worker = zsocket_new(context,ZMQ_DEALER);
 
-  int i = 0;
   while(true) {
     zmsg_t *msg = zmsg_recv(server);
-    // Print the massage on the server's console
     zmsg_print(msg);
 
     zframe_t *identity = zmsg_pop(msg);

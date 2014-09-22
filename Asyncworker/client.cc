@@ -12,8 +12,8 @@ int main(int argc, char** argv) {
 
   zsocket_connect(server, "tcp://localhost:5555");
   zmsg_t *msg = zmsg_new();
-  for(int i = 0; i < 3; i++) zmsg_addstr(argv[i+1]);
-  zmsg_send(client, msg);
+  for(int i = 0; i < 3; i++) zmsg_addstr(msg,argv[i+1]);
+  zmsg_send(&msg,server);
 
   cout<<"Ya le llega relajese"<<endl;
 
@@ -28,28 +28,6 @@ int main(int argc, char** argv) {
       zmsg_destroy(&msg);
       break;
     }
-  void* client = zsocket_new(context,ZMQ_DEALER);
-
-  if (argc > 1) {
-    char *identity = argv[1];
-    zsocket_set_identity(client,identity);
-  }
-  
-  zsocket_connect(client, "tcp://localhost:5555");
-
-  zmq_pollitem_t item = {client, 0, ZMQ_POLLIN, 0};
-  
-  string in;
-
-  while(true) {
-    zmq_poll(&item,1,10*ZMQ_POLL_MSEC);
-    if(item.revents & ZMQ_POLLIN) {
-      zmsg_t *msg = zmsg_recv(client);
-      zmsg_print(msg);
-      zmsg_destroy(&msg);      
-    }
-    cin>>in;
-    zstr_send(client, in.c_str);
   }
   zctx_destroy(&context);
   return 0;
