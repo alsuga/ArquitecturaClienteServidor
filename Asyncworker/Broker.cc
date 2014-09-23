@@ -9,7 +9,6 @@ queue<zmsg_t *> qMsg;
 
 zframe_t * getWorker(string operation,int pos){
   zframe_t *id = wr[operation][pos];
-
   fr[operation][pos] = false;
 
   return zframe_dup(id);
@@ -17,7 +16,7 @@ zframe_t * getWorker(string operation,int pos){
 
 int searchPos(string op){
   for(int i = 0; i < wr[op].size(); i++)
-    if(wr[op][i]) return i;
+    if(fr[op][i]) return i;
   return -1;
 }
 
