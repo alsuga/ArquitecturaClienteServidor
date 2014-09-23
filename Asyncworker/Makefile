@@ -17,10 +17,10 @@ client: client.cc
 #	$(CC) -L$(ZMQ_LIBS) -o client client.o -lzmq -lczmq
 	$(CC) client.cc -o client -lzmq -lczmq
 
-server:  diserver.cc
+server:  Broker.cc
 #	$(CC) -I$(ZMQ_HDRS) -c server.c
 #	$(CC) -L$(ZMQ_LIBS) -o server server.o -lzmq -lczmq
-	$(CC) diserver.cc -o server -lzmq -lczmq
+	$(CC) Broker.cc -o server -lzmq -lczmq
 
 clean:
 	rm -f client.o server.o worker.o client server worker *~

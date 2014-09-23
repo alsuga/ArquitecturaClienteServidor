@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
   zctx_t* context = zctx_new();
   void* server = zsocket_new(context,ZMQ_DEALER);
 
-  zsocket_connect(server, "tcp://localhost:5555");
+  zsocket_connect(server, "tcp://localhost:4444");
   zmsg_t *msg = zmsg_new();
   for(int i = 0; i < 3; i++) zmsg_addstr(msg,argv[i+1]);
   zmsg_send(&msg,server);
