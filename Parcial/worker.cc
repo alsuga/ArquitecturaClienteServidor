@@ -8,13 +8,25 @@ char *mult(string size,string mat,string vec){
   stringstram ss;
   ss<<size;
   ss>>n>>m>>o;
-  int vec[o];
+  int vec[o], out[o];
+  memset(out,0,sizeof(out));
   ss<<vec;
   for(int i = 0; i<o;i++) ss>>vec[i];
   ss<<mat;
   int mat[n][m];
   for(int i = 0; i < n; i++)
     for(int j = 0; j < m; j++) ss>>mat[i][j];
+  for(int i = 0; i < n; i++){
+    for(int j = 0; j < m; j++){
+      out[i] += vec[j]*mat[i][j];
+    }
+  }
+  string sout;
+  for(int i = 0; i < o; i++){
+    sout+= to_string(out[i]);
+    sout+= " ";
+  }
+  return sout.c_str();
 }
 
 void dispatcher(zmsg_t *in_msg, zmsg_t *out_msg ){
