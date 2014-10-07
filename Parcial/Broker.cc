@@ -3,49 +3,47 @@
 
 using namespace std;
 
-map<string, vector<zframe_t*> > wr;
-map<string, vector<bool> > fr;
+vector<zframe_t *>  wr;
+vector<bool> fr;
 queue<zmsg_t *> qMsg;
 
-zframe_t * getWorker(string operation,int pos){
-  zframe_t *id = wr[operation][pos];
-  fr[operation][pos] = false;
-
-  return zframe_dup(id);
+zframe_t * getWorker(int pos){
+  fr[pos] = false;
+  return zframe_dup(wr[pos]);
 }
 
-int searchPos(string op){
-  for(int i = 0; i < wr[op].size(); i++)
-    if(fr[op][i]) return i;
+int searchPos(){
+  for(int i = 0; i < fr.size(); i++){
+    if(fr[i]) return i;
+  }
   return -1;
 }
 
 /******* WORKERS ***********/
 
 void handleWorker(zmsg_t *msg, void *clients){
-  cout<<"Enviando a los clientes"<<endl;
+  cout<<"Mensaje de workers"<<endl;
   zmsg_print(msg);
 
   zframe_t* id = zmsg_pop(msg);
   char *op = zmsg_popstr(msg);
   if(strcmp(op,"reporting") == 0){
-    char *operation = zmsg_popstr(msg);
-    wr[operation].push_back(zframe_dup(id));
-    fr[operation].push_back(true);
+    wr.push_back(zframe_dup(id));
+    fr.push_back(true);
+    cout<<"Worker reportado"<<endl;
   }
   if(strcmp(op,"answer") == 0){
 
-    char *positions = zmsg_popstr(msg);
-    char *oper = new char;
+    char *position = zmsg_popstr(msg);
     int pos;
-    sscanf(positions,"%s %i",oper,&pos);
-    fr[oper][pos] = true;
+    pos= atoi(position);
+    fr[pos] = true;
     zmsg_print(msg);
     zmsg_send(&msg,clients);
+    cout<<"Mensaje enviado"<<endl;
   }
   free(op);
   zframe_destroy(&id);
-  cout<<"Mensaje enviado"<<endl;
   zmsg_destroy(&msg);
 }
 
@@ -53,40 +51,43 @@ void handleWorker(zmsg_t *msg, void *clients){
 /******* Clientes *********/
 
 void handleClient(zmsg_t *msg){
+  // repartir mensajes
   cout<< "Encolando mensajes :"<<endl;
-  zmsg_print(msg);
-
-  zframe_t* id = zmsg_pop(msg);
-  char *op = zmsg_popstr(msg);
-
-  zmsg_prepend(msg, &id);
-  zmsg_pushstr(msg, op);
-  //zmsg_prepend(msg, &worker);
-  zmsg_print(msg);
-  qMsg.push(msg);
-  //zmsg_send(&msg,workers);
-  free(op);
+  zframe_t *id = zmsg_pop(msg);
+  string st = zmsg_popstr(msg);
+  stringstream ss(st);
+  int m,n,o; ss>>m>>n>>o;
+  char *two = zmsg_popstr(msg);
+  for(int i = 0; i < m; i++){
+    zmsg_t *n = zmsg_new();
+    zframe_t *dup = zframe_dup(id);
+    zmsg_addstr(n,st.c_str());
+    zmsg_addstr(n,two);
+    zmsg_addstr(n,zmsg_popstr(msg));
+    zmsg_pushstr(n,to_string(i).c_str());
+    zmsg_prepend(n,&dup);
+    zmsg_print(n);
+    qMsg.push(n);
+  }
+  zmsg_destroy(&msg);
 }
 
 void sendToWorker(void *workers){
   cout<<"Tratando de enviar a los workers"<<endl;
   zmsg_t *msg = zmsg_dup(qMsg.front());
-  string op = zmsg_popstr(msg);
 
-  int pos = searchPos(op);
-
+  int pos = searchPos();
   if(pos < 0) {
     zmsg_destroy(&msg);
+    cout<<"no hay disponibles"<<endl;
     return;
   }
-  zframe_t* worker = getWorker(op,pos);
-  char *tmp = new char;
-  sprintf(tmp," %i",pos);
-  op += tmp;
+  zframe_t* worker = getWorker(pos);
   qMsg.pop();
-
-  zmsg_addstr(msg,op.c_str());
+  zmsg_pushstr(msg,to_string(pos).c_str());
   zmsg_prepend(msg, &worker);
+  cout<<"antes de enviar esto le tengo"<<endl;
+  zmsg_print(msg);
   zmsg_send(&msg,workers);
   cout<<"mensaje enviado"<<endl;
   zmsg_destroy(&msg);
@@ -103,7 +104,6 @@ int main(void) {
                             {clients,0,ZMQ_POLLIN,0}};
 
   cout<<"Estamos listos!"<<endl;
-
   while(true) {
     zmq_poll(items, 2,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN){
@@ -118,7 +118,8 @@ int main(void) {
       handleClient(inmsg);
       cout<<"Mensaje del cliente despachado"<<endl;
     }
-    if(!qMsg.empty())   sendToWorker(workers);    
+    if(!qMsg.empty())
+      sendToWorker(workers);
   }
   zctx_destroy(&context);
   return 0;

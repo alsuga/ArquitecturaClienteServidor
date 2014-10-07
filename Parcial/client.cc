@@ -22,43 +22,45 @@ int main(int argc, char** argv) {
   mat += " ";
   mat += to_string(o);
   zmsg_addstr(msg,mat.c_str());
-  mat = "";
+  string mat1[n];
   for(int i = 0; i < n; i++){
     for(int j = 0; j < m; j++){
       cin>>stmp;
-      mat += stmp;
-      mat += " ";
+      if(j) mat1[i] += " ";
+      mat1[i] += stmp;
     }
+
   }
-  zmsg_addstr(msg,mat.c_str());
-  mat = "";
+  string mat2;
   for(int i = 0; i < m; i++){
     for(int j = 0; j < o; j++){
       cin>>stmp;
-      mat += stmp;
-      mat += " "; 
+      if(i+j) mat2 += " ";
+      mat2 += stmp;
     }
   }
-  zmsg_addstr(msg,mat.c_str());
+  zmsg_addstr(msg,mat2.c_str());
+  for(int i = 0; i < n; i++) zmsg_addstr(msg,mat1[i].c_str());
+  zmsg_print(msg);
+
   zmsg_send(&msg,server);
-
-
 
   zmq_pollitem_t items[] = {{server, 0, ZMQ_POLLIN, 0}};
   string out[n];
-  int pos = 0;
-  while(pos == n) {
+  int pos = 0,lg;
+  while(pos < n) {
     zmq_poll(items,1,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN) {
       zmsg_t *incmsg = zmsg_recv(server);
-      out[pos] += zmsg_popstr(incmsg);
+      lg = atoi(zmsg_popstr(incmsg));
+      out[lg] = zmsg_popstr(incmsg);
       pos++;
       zmsg_destroy(&incmsg);
       zmsg_destroy(&msg);
     }
   }
   cout<<"Respuesta"<<endl;
-  for(int i =0; i < out.size(); i++) cout<<out[i]<<endl;
+  for(int i =0; i < n; i++) cout<<out[i]<<endl;
   zctx_destroy(&context);
   return 0;
 }
