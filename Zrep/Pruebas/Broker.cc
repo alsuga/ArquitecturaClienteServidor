@@ -23,10 +23,17 @@ int searchPos(string op){
 /******* WORKERS ***********/
 
 void handleWorker(zmsg_t *msg, void *clients){
-  cout<<"Enviando a los clientess"<<endl;
+  cout<<"Enviando a los clientes"<<endl;
   zmsg_print(msg);
+
   zframe_t* id = zmsg_pop(msg);
-  cout<<"Size: "<<zframe_size(id)<<" <----------"<<endl;
+
+  cout<<"One: "<<zframe_strdup(id)<<" <----------"<<endl;
+  cout<<"Two: "<<zframe_strhex(id)<<" <----------"<<endl;
+  zframe_t* n = zframe_new(zframe_strhex(id),zframe_size(id));
+  zframe_print(id, "aca : ");
+  zframe_print(n, "tomalo : ");
+
   char *op = zmsg_popstr(msg);
   if(strcmp(op,"reporting") == 0){
     char *operation = zmsg_popstr(msg);

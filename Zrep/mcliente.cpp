@@ -6,14 +6,15 @@
 using namespace std;
 
 void parser(vector<string> &canciones, string &lista){
-  size_t pos = lista.find(";",0),ant = 0;
+  size_t pos,ant = 0;
   string act;
-  while(pos != string::npos){
-    act = lista.substr(ant,pos);
+  while(true){
+    pos = lista.find(";",ant); 
+    if(pos == string::npos) break;
+    act = lista.substr(ant,pos-ant-4);
     if(!binary_search(canciones.begin(), canciones.end(),act))
-      canciones.push_back();
-    ant = pos;
-    pos = lista.find(";",pos);
+      canciones.push_back(act);
+    ant = pos+1;
   }
   sort(canciones.begin(), canciones.end());
 }
@@ -21,7 +22,6 @@ void parser(vector<string> &canciones, string &lista){
 void pedir(string &pedido, void *server){
   string dato;
   zmsg_t *msg = zmsg_new();
-  zmsg_addstr(msg,"pedido");
   zmsg_addstr(msg,pedido.c_str());
   zmsg_send(&msg,server);
   zmq_pollitem_t items[] = {{server, 0, ZMQ_POLLIN, 0}};

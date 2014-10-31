@@ -5,15 +5,48 @@ using namespace std;
 
 map<string, vector<zframe_t*> > wr;
 map<string, vector<bool> > fr;
+map<string, vector<string> > mus;
+vector<zframe_t*> dirwork;
 queue<zmsg_t *> qMsg;
 
-void parser(string &dir, string &lista){
-  size_t pos = lista.find(";",0),ant = 0;
-  string tmp;
-  while(pos != string::npos){
-    tmp = lista.substr(ant,pos);
-    wr[tmp].push_back(dir);
-    fr[tmp].push_back(true);
+/*
+void parser(vector<string> &canciones, string &lista){
+  size_t pos,ant = 0;
+  string act;
+  while(true){
+    pos = lista.find(";",ant); 
+    if(pos == string::npos) break;
+    act = lista.substr(ant,pos-ant);
+    if(!binary_search(canciones.begin(), canciones.end(),act))
+      canciones.push_back(act);
+    ant = pos+1;
+  }
+  sort(canciones.begin(), canciones.end());
+}
+*/
+
+zframe_t* getDir(string name){
+  for(auto it = mus.begin();  it != mus.end(); ++it ){
+    if(!binary_search(it->second.begin(), it->second.end(),name)){
+      for(auto ite = dirwork.begin(); ite != dirwork.end(); ++ite){
+        if(strcmp(zframe_strhex(*ite), zframe_strhex(it->first.c_str()) ) ) return *ite;
+      }
+    }
+  }
+  return dirwork[rand()%dirwork.size()];
+}
+
+void parser(zframe_t *dir, string &lista){
+  size_t pos,ant = 0;
+  string act;
+  dirwork.push_back(dir);
+  while(true){
+    pos = lista.find(";",ant); 
+    if(pos == string::npos) break;
+    act = lista.substr(ant,pos-ant);
+    mus[zframe_strhex(dir)].push_back(act);
+    wr[act].push_back(dir);
+    fr[act].push_back(true);
     ant = pos+1;
     pos = lista.find(";",ant);
   }
@@ -33,21 +66,29 @@ int searchPos(string cancion){
 
 /******* WORKERS ***********/
 
-void handleWorker(zmsg_t *msg, void *clients){
+void handleWorker(zmsg_t *msg, void *clients,void *workers){
   cout<<"Enviando a los clientes"<<endl;
   zmsg_print(msg);
 
   zframe_t* id = zmsg_pop(msg);
   char *op = zmsg_popstr(msg);
   if(strcmp(op,"reportandoce") == 0){
-    string lista = zmsg_popstr(msg), dir = zframe_strhex(id);
+    string lista = zmsg_popstr(msg);
     canciones += lista;
-    parser(dir, lista);
+    parser(id, lista);
   }
   if(strcmp(op,"cancion") == 0){
-    //arreglar
+    string cancion = zmsg_popstr(msg);
     zmsg_print(msg);
     zmsg_send(&msg,clients);
+  }
+  if(strcmp(op, "replica") == 0){
+    string cancion = zmsg_popstr(msg);
+    zframe_t *dir = getDir(cancion);
+    zmsg_pushstr(msg,cancion.c_str());    
+    zmsg_pushstr(msg,"replica");
+    zmsg_prepend(msg,dir);
+    zmsg_send(&msg,workers);
   }
   zframe_destroy(&id);
   cout<<"Mensaje enviado"<<endl;
@@ -62,12 +103,12 @@ void handleClient(zmsg_t *msg){
   zmsg_print(msg);
 
   zframe_t* id = zmsg_pop(msg);
-  char *cancion = zmsg_popstr(msg);
+  string cancion = zmsg_popstr(msg);
 
   zmsg_prepend(msg, &id);
-  zmsg_pushstr(msg, cancion);
+  zmsg_pushstr(msg, cancion.c_str());
   //zmsg_prepend(msg, &worker);
-  zmsg_print(msg);
+  
   qMsg.push(msg);
   //zmsg_send(&msg,workers);
   free(cancion);
@@ -85,12 +126,14 @@ void sendToWorker(void *workers){
     return;
   }
   zframe_t* worker = getWorker(cancion,pos);
-  char *tmp = new char;
+ /* char *tmp = new char;
   sprintf(tmp," %i",pos);
   cancion += tmp;
+  */
   qMsg.pop();
 
   zmsg_addstr(msg,cancion.c_str());
+  zmsg_addstr(msg,"cancion");
   zmsg_prepend(msg, &worker);
   zmsg_send(&msg,workers);
   cout<<"mensaje enviado"<<endl;
@@ -116,7 +159,7 @@ int main(void) {
     if(items[0].revents & ZMQ_POLLIN){
       cout<<"Mensaje de worker recibido"<<endl;
       zmsg_t *inmsg = zmsg_recv(workers);
-      handleWorker(inmsg, clients);
+      handleWorker(inmsg, clients,workers);
       cout<<"Mensaje de worker despachado"<<endl;
     }
     if(items[1].revents & ZMQ_POLLIN){

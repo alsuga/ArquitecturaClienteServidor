@@ -3,19 +3,24 @@ CC= g++ -std=c++11
 #ZMQ_HDRS=$(ZMQ)/include
 #ZMQ_LIBS=$(ZMQ)/lib
 
-all: server client
+all: worker client server
 
-server: simple_server.cpp
+worker: worker.cc
 	#$(CC) -I$(ZMQ_HDRS) -c worker.cc
 	#$(CC) -L$(ZMQ_LIBS) -o worker worker.o -lzmq -lczmq
-	$(CC) simple_server.cpp -o server -lzmq -lzmqpp
+	$(CC) worker.cc -o worker -lzmq -lczmq
 
 #client server
 
-client: simple_client.cpp
+client: client.cc
 #	$(CC) -I$(ZMQ_HDRS) -c client.c
 #	$(CC) -L$(ZMQ_LIBS) -o client client.o -lzmq -lczmq
-	$(CC) simple_client.cpp -o client -lzmq -lzmqpp
+	$(CC) client.cc -o client -lzmq -lczmq
+
+server:  Broker.cc
+#	$(CC) -I$(ZMQ_HDRS) -c server.c
+#	$(CC) -L$(ZMQ_LIBS) -o server server.o -lzmq -lczmq
+	$(CC) Broker.cc -o server -lzmq -lczmq
 
 clean:
-	rm -f client server *~
+	rm -f client.o server.o worker.o client server worker *~
