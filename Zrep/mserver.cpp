@@ -1,34 +1,41 @@
 #include <bits/stdc++.h>
 #include <dirent.h>
 #include <czmq.h>
+#include <thread>
+#define _dbg(x) cout<<"----------------------"<<x<<"------------------------"<<endl;
+
 
 using namespace std;
 
 map<string,int> uso;
+
 
 void enviarCancion(string cancion,zmsg_t *msg, void *server){
 
   cout<< "Solicitada "<<cancion<<endl;
   zmsg_addstr(msg,cancion.c_str());
   cancion += ".mp3";
-
-  zchunk_t *chunk = zchunk_slurp(cancion.c_str(),0);
+  _dbg(cancion);
+  string a = "./canciones/";
+  a+= cancion;
+  zchunk_t *chunk = zchunk_slurp(a.c_str(),0);
   if(!chunk) {
     cout << "no se puede leer!" << endl;
-    return 1;
+    return;
   }
   zframe_t *frame = zframe_new(zchunk_data(chunk), zchunk_size(chunk));
-  zmsg_append(msg,frame);
+  zmsg_append(msg,&frame);
   zmsg_send(&msg,server);
 }
 
 void reproducida(string cancion, void *server){
-  map[cancion]++;
-  if(map[cancion] > 10){
-    map[cancion] = 0;
+  uso[cancion]++;
+  if(uso[cancion] > 10){
+    uso[cancion] = 0;
     zmsg_t *msg = zmsg_new();
     zmsg_addstr(msg,"replica");
-    treahd t(enviarCancion,cancion,msg,server);
+    //thread t(enviarCancion,cancion,msg,server);
+    enviarCancion(cancion,msg,server);
   }
 }
 
@@ -42,6 +49,7 @@ int listar(void *server) {
     while ((ent = readdir (dir)) != NULL) {
       if( strcmp(ent->d_name,".") != 0 and strcmp(ent->d_name, "..") != 0){
         vec.push_back(ent->d_name);
+        uso[ent->d_name];
       }
     }
     closedir (dir);
@@ -55,9 +63,11 @@ int listar(void *server) {
       canciones += vec[i];
       canciones += ';'; 
   }
-  zmsg_t msg = zmsg_new();
+  zmsg_t *msg = zmsg_new();
   zmsg_addstr(msg,"reportandoce");
   zmsg_addstr(msg, canciones.c_str());
+  _dbg("listar");
+  zmsg_print(msg);
   zmsg_send(&msg,server);
   return 1;
 }
@@ -65,14 +75,20 @@ int listar(void *server) {
 void dispatcher(zmsg_t *in_msg, void *server){
   zmsg_t *out_msg = zmsg_new();
   zframe_t *wh = zmsg_pop(in_msg);
+  _dbg("");
   zmsg_print(in_msg);
   string a = zmsg_popstr(in_msg);
   if(a.compare("cancion") == 0){
-    reproducida(a,server);
+    a = zmsg_popstr(in_msg);
+    if(a.find("publicidad") == string::npos){
+      reproducida(a,server);
+    }else{
+      a += to_string(rand() %uso.size());
+    }
     //partir canciones
     zmsg_addstr(out_msg,"cancion");
     zmsg_append(out_msg, &wh);
-    enviarCancion(outmsg,server);
+    enviarCancion(a,out_msg,server);
   /*
     zmsg_addstr(out_msg,a.c_str());
     //enviar mensaje en un while
@@ -81,9 +97,9 @@ void dispatcher(zmsg_t *in_msg, void *server){
   }
   if(a.compare("replicar") == 0){
     a = zmsg_popstr(in_msg);
-    zfile_t *download = zfile_new("./", a.c_str()|);
+    zfile_t *download = zfile_new("./", a.c_str());
     zfile_output(download);
-    zframe_t *filePart = zmsg_pop(server);
+    zframe_t *filePart = zmsg_pop(in_msg);
     zchunk_t *chunk = zchunk_new(zframe_data(filePart), zframe_size(filePart)); 
     zfile_write(download, chunk, 0);
     zfile_close(download);
@@ -92,6 +108,7 @@ void dispatcher(zmsg_t *in_msg, void *server){
 }
 
 int main(){
+  srand (time(NULL));
   zctx_t* context = zctx_new();
   void* server = zsocket_new(context, ZMQ_DEALER);
   int c = zsocket_connect(server, "tcp://localhost:5555");
@@ -114,7 +131,6 @@ int main(){
       zmsg_t *incmsg = zmsg_recv(server);
       
       zmsg_print(incmsg);
-
       dispatcher(incmsg,server);
       zmsg_destroy(&incmsg);
       cout<<"Enviado"<<endl;

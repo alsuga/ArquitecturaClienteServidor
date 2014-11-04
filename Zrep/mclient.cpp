@@ -1,18 +1,20 @@
 #include <bits/stdc++.h>
 #include <czmq.h>
-
 #define endl '\n'
+#define _dbg(x) cout<<"----------------------"<<x<<"------------------------"<<endl;
+
 
 using namespace std;
 
 void parser(vector<string> &canciones, string &lista){
+  _dbg("parseando ando")
   size_t pos,ant = 0;
   string act;
   while(true){
     pos = lista.find(";",ant); 
     if(pos == string::npos) break;
     act = lista.substr(ant,pos-ant-4);
-    if(!binary_search(canciones.begin(), canciones.end(),act))
+    if(!binary_search(canciones.begin(), canciones.end(),act) and act.find("publicidad") == string::npos)
       canciones.push_back(act);
     ant = pos+1;
   }
@@ -20,23 +22,29 @@ void parser(vector<string> &canciones, string &lista){
 }
 
 void pedir(string &pedido, void *server){
-  string dato;
+  _dbg("pidiendo cancion")
+  zframe_t* dato;
   zmsg_t *msg = zmsg_new();
   zmsg_addstr(msg,pedido.c_str());
+  zmsg_print(msg);
   zmsg_send(&msg,server);
   zmq_pollitem_t items[] = {{server, 0, ZMQ_POLLIN, 0}};
+  _dbg("esperando cancion")
   while(true) {
     zmq_poll(items,1,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN) {
       cout << "Ya llego la cancion patron:"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
       zmsg_print(incmsg);
-      dato = zmsg_popstr(incmsg);
-      if(dato.compare("acabo")){
-        break;
-      }
-      //aca va lo de recibir el archivo 
-      dato = zmsg_popstr(incmsg);
+      zmsg_popstr(incmsg);
+      string strout = pedido;
+      strout += ".mp3";
+      zfile_t *download = zfile_new("./", strout.c_str());
+      zfile_output(download);
+      dato = zmsg_pop(incmsg);
+      zchunk_t *chunk = zchunk_new(zframe_data(dato), zframe_size(dato)); 
+      zfile_write(download, chunk, 0);
+      zfile_close(download);
       zmsg_destroy(&incmsg);
     }
   }
@@ -51,7 +59,7 @@ int main(int argc, char** argv) {
   //Enviando mensaje para recibir la lista de musica
   string lista="";
   zmsg_t *msg = zmsg_new();
-  zmsg_addstr(msg,"Givemepower");
+  zmsg_addstr(msg,"a");
   zmsg_send(&msg,server);
 
   cout<<"Ya le llega la lista relajese"<<endl;
@@ -76,11 +84,13 @@ int main(int argc, char** argv) {
   parser(canciones, lista);
 
   string pedido = "";
-
-  while(pedido.compare("sacamedeaqui!") != 0){
-    cout<<"imprimir para lista de canciones, sacamedeaqui! para salir y ";2
+  while(true){
+    cout<<"\"imprimir\" para lista de canciones, \"sacamedeaqui!\" para salir y ";
     cout<<"el nombre de la cancion para agregar a la lista de reproduccion"<<endl;
     cin>>pedido;
+    if(pedido.compare("sacamedeaqui!") == 0){
+      cout<<"Chao nene"<<endl;
+    }
     if(pedido.compare("imprimir") == 0){
       for(int i = 0; i < canciones.size(); i++)
         cout<<canciones[i]<<endl;
