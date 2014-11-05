@@ -139,6 +139,13 @@ void dispatcher(zmsg_t *in_msg, void *server){
   zframe_destroy(&wh);
 }
 
+/************************************************************
+main
+crea y conecta el socket, lista sus canciones y las envia al
+broker reportandoce, luego se queda esperando si se necesita
+trabajo.
+************************************************************/
+
 int main(){
   srand (time(NULL));
   zctx_t* context = zctx_new();

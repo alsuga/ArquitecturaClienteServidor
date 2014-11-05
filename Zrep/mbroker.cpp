@@ -5,6 +5,29 @@
 
 using namespace std;
 
+/************************************************************
+map<string, vector<zframe_t*> > wr : Sirve para saber en que 
+servidores de musica se encuentra una cancion.
+
+map<string, bool > fr : como llave tiene concatenado el nombre
+de la cancion con la direccion del worker para saber de manera
+sencilla si el worker con la cancion esta ocupado.
+
+map<string, vector<string> > mus : sirve para indicar si un
+servidor de musica tiene una cancion, lo cual ayuda a indicar
+a que servidor se debe replicar.
+
+map<string,int> clnts : Indica el numero de canciones que
+ha pedido un cliente con el fin de determinar si se debe enviar
+publicidad
+
+vector<zframe_t*> dirwork : Lista con las direcciones de los
+servidores de musica
+
+queue<zmsg_t *> qMsg : Cola donde se guardan los mensajes
+para ser enviados a los servidores de musica
+string canciones :
+************************************************************/
 map<string, vector<zframe_t*> > wr;
 map<string, bool > fr;
 map<string, vector<string> > mus;
@@ -13,7 +36,12 @@ vector<zframe_t*> dirwork;
 queue<zmsg_t *> qMsg;
 string canciones;
 
-zframe_t* getDir(string name){
+/************************************************************
+string name : Si un servidor no tiene una cancion se elige 
+este para poner la replica de la cacion alli 
+************************************************************/
+
+zframe_t* getDir(string &name){
   for(auto it = mus.begin();  it != mus.end(); ++it ){
     if(!binary_search(it->second.begin(), it->second.end(),name)){
       for(auto ite = dirwork.begin(); ite != dirwork.end(); ++ite){
@@ -23,6 +51,12 @@ zframe_t* getDir(string name){
   }
   return dirwork[rand()%dirwork.size()];
 }
+
+/************************************************************
+parser
+zframe_t *dir : 
+string &lista :
+************************************************************/
 
 void parser(zframe_t *dir, string &lista){
   size_t pos,ant = 0;
@@ -41,12 +75,18 @@ void parser(zframe_t *dir, string &lista){
   }
 }
 
+/************************************************************
+************************************************************/
+
 zframe_t * getWorker(string cancion,int pos){
   zframe_t *id = wr[cancion][pos];
   cancion += zframe_strhex(id);
   fr[cancion] = false;
   return zframe_dup(id);
 }
+
+/************************************************************
+************************************************************/
 
 int searchPos(string cancion){
   _dbg("Buscando posicion");
@@ -62,7 +102,8 @@ int searchPos(string cancion){
   return -1;
 }
 
-/******* WORKERS ***********/
+/************************************************************
+************************************************************/
 
 void handleWorker(zmsg_t *msg, void *clients,void *workers){
   zframe_t* id = zmsg_pop(msg);
@@ -93,7 +134,8 @@ void handleWorker(zmsg_t *msg, void *clients,void *workers){
 }
 
 
-/******* Clientes *********/
+/************************************************************
+************************************************************/
 
 void handleClient(zmsg_t *msg, void * clients){
   _dbg("encolando mensaje")
@@ -132,6 +174,9 @@ void handleClient(zmsg_t *msg, void * clients){
   //zmsg_send(&msg,workers);
 }
 
+/************************************************************
+************************************************************/
+
 void sendToWorker(void *workers){
   _dbg("tratando de enviar a los workers")
   zmsg_t *msg = zmsg_dup(qMsg.front());
@@ -147,10 +192,7 @@ void sendToWorker(void *workers){
   }
   _dbg("se fue")
   zframe_t* worker = getWorker(cancion,pos);
- /* char *tmp = new char;
-  sprintf(tmp," %i",pos);
-  cancion += tmp;
-  */
+
   qMsg.pop();
   zmsg_addstr(msg,"cancion");
   zmsg_addstr(msg,cancion.c_str());
@@ -160,6 +202,9 @@ void sendToWorker(void *workers){
   cout<<"mensaje enviado"<<endl;
   zmsg_destroy(&msg);
 }
+
+/************************************************************
+************************************************************/
 
 int main(void) {
   // definicion de sockets
