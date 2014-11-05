@@ -7,8 +7,19 @@
 
 using namespace std;
 
+// map<string,int> uso : sirve para saber si es necesario
+// replicar una cancion
 map<string,int> uso;
 
+
+/************************************************************
+enviarCancion
+string cancion: cancion a enviar
+zmsg_t* msg : mensaje en donde se empaqueta la cancion
+void* server : socket al broker
+agrega la cancion al mensaje, luego saca el archivo, lo 
+empaqueta en un chunk, este en un frame y se envia
+************************************************************/
 
 void enviarCancion(string cancion,zmsg_t *msg, void *server){
 
@@ -28,7 +39,15 @@ void enviarCancion(string cancion,zmsg_t *msg, void *server){
   zmsg_send(&msg,server);
 }
 
-void reproducida(string cancion, void *server){
+/************************************************************
+reproducida
+string cancion : cancion a reproducir
+void* server : socket al broker
+cuenta una reproduccion de la cancion, si tiene las suficientes
+(10) se genera una replica
+************************************************************/
+
+void reproducida(string &cancion, void *server){
   uso[cancion]++;
   if(uso[cancion] > 10){
     uso[cancion] = 0;
@@ -38,6 +57,14 @@ void reproducida(string cancion, void *server){
     enviarCancion(cancion,msg,server);
   }
 }
+
+
+/************************************************************
+listar
+void* server : socket al broker
+lee los archivos en un directorio
+y los lista, ordena y envia al broker
+************************************************************/
 
 int listar(void *server) {
   string canciones = "";
@@ -72,6 +99,17 @@ int listar(void *server) {
   return 1;
 }
 
+/************************************************************
+dispatcher
+zmsg_t* in_msg : mensaje recibido del broker
+void* server: socket al broker
+Se desempaqueta el mensaje, se evalua si pide una cancion,
+si lo hace se revisa si es momento de enviar una pauta 
+publicitaria y si lo es se envia y luego la cancion.
+si se pide una replica se envia el archivo solicitado
+************************************************************/
+
+
 void dispatcher(zmsg_t *in_msg, void *server){
   zmsg_t *out_msg = zmsg_new();
   zframe_t *wh = zmsg_pop(in_msg);
@@ -85,15 +123,9 @@ void dispatcher(zmsg_t *in_msg, void *server){
     }else{
       a += to_string(rand() %uso.size());
     }
-    //partir canciones
     zmsg_addstr(out_msg,"cancion");
     zmsg_append(out_msg, &wh);
     enviarCancion(a,out_msg,server);
-  /*
-    zmsg_addstr(out_msg,a.c_str());
-    //enviar mensaje en un while
-    //enviar fin de canciones
-  */
   }
   if(a.compare("replicar") == 0){
     a = zmsg_popstr(in_msg);

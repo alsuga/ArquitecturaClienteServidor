@@ -6,6 +6,14 @@
 
 using namespace std;
 
+/************************************************************
+* parser 
+* vector<string> canciones : vector con la lista de canciones
+* string lista : lista de canciones recibida del broker
+* parcea la cadena buscando el ";" que indica el final de
+* la cancion y saca su nombre y lo pone en la lista
+* que al final ordena
+************************************************************/
 void parser(vector<string> &canciones, string &lista){
   _dbg("parseando ando")
   size_t pos,ant = 0;
@@ -20,6 +28,15 @@ void parser(vector<string> &canciones, string &lista){
   }
   sort(canciones.begin(), canciones.end());
 }
+
+/************************************************************
+pedir
+string pedido : cancion solicitada
+void *server : socket al servidor
+Agrega el pedido al mensaje y espera a que el servidor responda
+y escribe el archivo
+************************************************************/
+
 
 void pedir(string &pedido, void *server){
   _dbg("pidiendo cancion")
@@ -36,7 +53,7 @@ void pedir(string &pedido, void *server){
       cout << "Ya llego la cancion patron:"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
       zmsg_print(incmsg);
-      zmsg_popstr(incmsg);
+      zmsg_popstr(incmsg);.
       string strout = pedido;
       strout += ".mp3";
       zfile_t *download = zfile_new("./", strout.c_str());
@@ -49,6 +66,12 @@ void pedir(string &pedido, void *server){
     }
   }
 }
+
+/************************************************************
+Main
+Crea server y envia mensaje de reporte
+y crea lista de canciones
+************************************************************/
 
 int main(int argc, char** argv) {
   //Creando el contexto y el socket
