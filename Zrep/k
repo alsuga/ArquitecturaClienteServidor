@@ -2,4 +2,3 @@
 killall -9 client
 killall -9 broker
 killall -9 musicserver
-make

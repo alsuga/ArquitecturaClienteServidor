@@ -42,13 +42,17 @@ este para poner la replica de la cacion alli
 ************************************************************/
 
 zframe_t* getDir(string &name){
+  //_dbg(name)
   for(auto it = mus.begin();  it != mus.end(); ++it ){
     if(!binary_search(it->second.begin(), it->second.end(),name)){
       for(auto ite = dirwork.begin(); ite != dirwork.end(); ++ite){
-        if(strcmp(zframe_strhex(*ite), it->first.c_str() ) ) return *ite;
+        //_dbg(zframe_strhex(*ite))
+        //_dbg(it->first.c_str());
+        if(strcmp(zframe_strhex(*ite), it->first.c_str() ) == 0 ) return *ite;
       }
     }
   }
+  //_dbg("get dir out")
   return dirwork[rand()%dirwork.size()];
 }
 
@@ -61,18 +65,26 @@ string &lista :
 void parser(zframe_t *dir, string &lista){
   size_t pos,ant = 0;
   string act;
-  dirwork.push_back(dir);
+  bool fg = false;
   while(true){
     pos = lista.find(";",ant); 
     if(pos == string::npos) break;
     act = lista.substr(ant,pos-ant-4);
+    if(act.find("publicidad") != string::npos){
+      fg = true;
+      act = "publicidad";
+    }
     mus[zframe_strhex(dir)].push_back(act);
-    wr[act].push_back(dir);
+    zframe_t* tmp = zframe_dup(dir);
+    wr[act].push_back(tmp);
     act += zframe_strhex(dir);
     fr[act] = true;
+    if(fg) return;
     ant = pos+1;
     pos = lista.find(";",ant);
   }
+  zframe_t* tmp = zframe_dup(dir);
+  dirwork.push_back(tmp);
 }
 
 /************************************************************
@@ -80,6 +92,8 @@ void parser(zframe_t *dir, string &lista){
 
 zframe_t * getWorker(string cancion,int pos){
   zframe_t *id = wr[cancion][pos];
+  _dbg("marco")
+  _dbg(cancion)
   cancion += zframe_strhex(id);
   fr[cancion] = false;
   return zframe_dup(id);
@@ -94,9 +108,12 @@ int searchPos(string cancion){
   //_dbg((wr[cancion][0]))
   for(int i = 0; i < wr[cancion].size(); ++i){
     a = cancion;
-    cout<<i<<endl;
+    cout<<i<<" ";
     tmp = zframe_strhex(wr[cancion][i]);
+    cout<<tmp<<endl;
     a+= tmp;
+    _dbg(a)
+    _dbg(fr[a])
     if(fr[a]) return i;
   }
   return -1;
@@ -108,7 +125,7 @@ int searchPos(string cancion){
 void handleWorker(zmsg_t *msg, void *clients,void *workers){
   zframe_t* id = zmsg_pop(msg);
   char *op = zmsg_popstr(msg);
-  zmsg_print(msg);
+  //zmsg_print(msg);
   if(strcmp(op,"reportandoce") == 0){
     _dbg("Worker reportandoce")
     string lista = zmsg_popstr(msg);
@@ -116,17 +133,29 @@ void handleWorker(zmsg_t *msg, void *clients,void *workers){
     parser(id, lista);
   }
   if(strcmp(op,"cancion") == 0){
-    _dbg("cancion para el cliente")
-    zmsg_print(msg);
+    _dbg("cancion para el cliente, desmarco")
+    zframe_t* tmp =  zmsg_pop(msg);
+    string a = zmsg_popstr(msg),b = a;
+    _dbg(a)
+    a += zframe_strhex(id);
+    //_dbg(a)
+    fr[a] = true;
+    zmsg_pushstr(msg,b.c_str());
+    zmsg_prepend(msg,&tmp);
+    //zmsg_print(msg);
     zmsg_send(&msg,clients);
   }
   if(strcmp(op, "replica") == 0){
     _dbg("worker pidiendo replica")
+    zmsg_print(msg);
     string cancion = zmsg_popstr(msg);
     zframe_t *dir = getDir(cancion);
     zmsg_pushstr(msg,cancion.c_str());    
     zmsg_pushstr(msg,"replica");
+    zmsg_prepend(msg,&id);
     zmsg_prepend(msg,&dir);
+    //_dbg("salida")
+    zmsg_print(msg);
     zmsg_send(&msg,workers);
   }
   cout<<"Mensaje enviado"<<endl;
@@ -146,29 +175,32 @@ void handleClient(zmsg_t *msg, void * clients){
   if(clnts[tmp] == 0){
     _dbg("activando nuevo cliente");
     clnts[tmp] = 1;
-    _dbg(canciones)
+    //_dbg(canciones)
     zmsg_popstr(msg);
     zmsg_pushstr(msg,canciones.c_str());
     zmsg_prepend(msg, &id);
     zmsg_send(&msg,clients);
     return;
   }
-  if(clnts[tmp] == 3){
+  if(clnts[tmp] == 20){
     _dbg("enviando publicidad");
     clnts[tmp] = 0;
     zmsg_t *publ = zmsg_dup(msg);
     zmsg_popstr(publ);
-    zmsg_prepend(publ, &id);
-    zmsg_pushstr(msg, "publicidad");
-    qMsg.push(msg);
+    zframe_t* tmp = zframe_dup(id);
+    zmsg_prepend(publ, &tmp);
+    zmsg_pushstr(publ, "publicidad");
+    zmsg_print(publ);
+    qMsg.push(publ);
   }
   _dbg("pidinedo cancion")
+  zmsg_print(msg);
   string cancion = zmsg_popstr(msg);
 
   zmsg_prepend(msg, &id);
   zmsg_pushstr(msg, cancion.c_str());
   //zmsg_prepend(msg, &worker);
-  
+  //zmsg_print(msg);
   qMsg.push(msg);
   clnts[tmp]++;
   //zmsg_send(&msg,workers);
@@ -187,6 +219,8 @@ void sendToWorker(void *workers){
 
   if(pos < 0) {
     _dbg("Donde estas?")
+    // temporal!!!!
+    qMsg.pop();
     zmsg_destroy(&msg);
     return;
   }
@@ -219,8 +253,7 @@ int main(void) {
                             {clients,0,ZMQ_POLLIN,0}};
 
   cout<<"Estamos listos!"<<endl;
-
-  while(true) {
+  while(true ) {
     zmq_poll(items, 2,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN){
       cout<<"Mensaje de worker recibido"<<endl;
@@ -234,7 +267,7 @@ int main(void) {
       handleClient(inmsg,clients);
       cout<<"Mensaje del cliente despachado"<<endl;
     }
-    if(!qMsg.empty()) sendToWorker(workers);  
+    if(!qMsg.empty()) sendToWorker(workers); 
   }
   zctx_destroy(&context);
   return 0;

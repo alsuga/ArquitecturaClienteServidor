@@ -50,11 +50,12 @@ void pedir(string &pedido, void *server){
   while(true) {
     zmq_poll(items,1,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN) {
+      //para borrar las canciones despues de reproducirlas
+      system("rm *.mp3");
       cout << "Ya llego la cancion patron:"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
       zmsg_print(incmsg);
-      zmsg_popstr(incmsg);.
-      string strout = pedido;
+      string strout = zmsg_popstr(incmsg);
       strout += ".mp3";
       zfile_t *download = zfile_new("./", strout.c_str());
       zfile_output(download);
@@ -63,6 +64,11 @@ void pedir(string &pedido, void *server){
       zfile_write(download, chunk, 0);
       zfile_close(download);
       zmsg_destroy(&incmsg);
+      system("mplayer -slave -quiet A.mp3");
+      if(strout.find("publicidad") == string::npos ) {
+         _dbg(strout);
+        break;
+      }
     }
   }
 }
@@ -113,6 +119,7 @@ int main(int argc, char** argv) {
     cin>>pedido;
     if(pedido.compare("sacamedeaqui!") == 0){
       cout<<"Chao nene"<<endl;
+      break;
     }
     if(pedido.compare("imprimir") == 0){
       for(int i = 0; i < canciones.size(); i++)

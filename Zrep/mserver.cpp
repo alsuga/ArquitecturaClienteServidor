@@ -49,11 +49,12 @@ cuenta una reproduccion de la cancion, si tiene las suficientes
 
 void reproducida(string &cancion, void *server){
   uso[cancion]++;
-  if(uso[cancion] > 10){
+  if(uso[cancion] > 0){
     uso[cancion] = 0;
     zmsg_t *msg = zmsg_new();
     zmsg_addstr(msg,"replica");
     //thread t(enviarCancion,cancion,msg,server);
+    _dbg("replica")
     enviarCancion(cancion,msg,server);
   }
 }
@@ -93,8 +94,8 @@ int listar(void *server) {
   zmsg_t *msg = zmsg_new();
   zmsg_addstr(msg,"reportandoce");
   zmsg_addstr(msg, canciones.c_str());
-  _dbg("listar");
-  zmsg_print(msg);
+  //_dbg("listar");
+  //zmsg_print(msg);
   zmsg_send(&msg,server);
   return 1;
 }
@@ -127,9 +128,12 @@ void dispatcher(zmsg_t *in_msg, void *server){
     zmsg_append(out_msg, &wh);
     enviarCancion(a,out_msg,server);
   }
-  if(a.compare("replicar") == 0){
+  if(a.compare("replica") == 0){
+    _dbg("replica recibida")
+    zmsg_print(in_msg);
     a = zmsg_popstr(in_msg);
-    zfile_t *download = zfile_new("./", a.c_str());
+    a += ".mp3";
+    zfile_t *download = zfile_new("./canciones/", a.c_str());
     zfile_output(download);
     zframe_t *filePart = zmsg_pop(in_msg);
     zchunk_t *chunk = zchunk_new(zframe_data(filePart), zframe_size(filePart)); 
