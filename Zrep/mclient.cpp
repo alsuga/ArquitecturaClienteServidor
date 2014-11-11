@@ -6,6 +6,8 @@
 
 using namespace std;
 
+vector<string> playlist;
+
 /************************************************************
 * parser 
 * vector<string> canciones : vector con la lista de canciones
@@ -37,7 +39,6 @@ Agrega el pedido al mensaje y espera a que el servidor responda
 y escribe el archivo
 ************************************************************/
 
-
 void pedir(string &pedido, void *server){
   _dbg("pidiendo cancion")
   zframe_t* dato;
@@ -51,7 +52,7 @@ void pedir(string &pedido, void *server){
     zmq_poll(items,1,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN) {
       //para borrar las canciones despues de reproducirlas
-      system("rm *.mp3");
+     // system("rm *.mp3");
       cout << "Ya llego la cancion patron:"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
       zmsg_print(incmsg);
@@ -64,10 +65,16 @@ void pedir(string &pedido, void *server){
       zfile_write(download, chunk, 0);
       zfile_close(download);
       zmsg_destroy(&incmsg);
-      system("mplayer -slave -quiet A.mp3");
+    //  system("mplayer -slave -quiet A.mp3");
       if(strout.find("publicidad") == string::npos ) {
          _dbg(strout);
         break;
+      } else{
+        string tmp = "mocp -l ";
+        tmp += strout;
+        cout<<"pautaaaa"<<endl;
+        system(tmp.c_str());
+        sleep(10);
       }
     }
   }
@@ -81,6 +88,11 @@ y crea lista de canciones
 
 int main(int argc, char** argv) {
   //Creando el contexto y el socket
+  system("mocp -x");
+  sleep(0.1);
+  system("mocp -S");
+  sleep(0.1);
+  system("mocp -c");
   zctx_t* context = zctx_new();
   void* server = zsocket_new(context,ZMQ_DEALER);
   zsocket_connect(server, "tcp://localhost:4444");
@@ -113,11 +125,14 @@ int main(int argc, char** argv) {
   parser(canciones, lista);
 
   string pedido = "";
+  int x = 0;
   while(true){
-    cout<<"\"imprimir\" para lista de canciones, \"sacamedeaqui!\" para salir y ";
-    cout<<"el nombre de la cancion para agregar a la lista de reproduccion"<<endl;
+    cout<<"\"imprimir\" para lista de canciones, \"sacame!\" para salir y ";
+    cout<<"el nombre de la cancion para agregar a la lista de reproduccion "; 
+    cout<<"\"play\" para reproducir la lista"<<endl;
     cin>>pedido;
-    if(pedido.compare("sacamedeaqui!") == 0){
+    if(pedido.compare("sacame!") == 0){
+      system("mocp -x");
       cout<<"Chao nene"<<endl;
       break;
     }
@@ -126,11 +141,25 @@ int main(int argc, char** argv) {
         cout<<canciones[i]<<endl;
       continue;
     }
+    if(pedido.compare("play") == 0){
+      pedir(playlist[x],server);
+      string cn = "mocp -l ";
+      cn += playlist[x];
+      cn +=".mp3";
+      _dbg(cn);
+      system(cn.c_str());
+      x = (x+1) % playlist.size();
+      continue;
+    }
     // crear un hilo que reciba el archivo
-    if(binary_search(canciones.begin(),canciones.end(),pedido))
-      pedir(pedido,server);
-    else
-      cout<<"No tenemos esa rola wey"<<endl;
+      if(binary_search(canciones.begin(),canciones.end(),pedido)){
+        playlist.push_back(pedido);     
+        cout<<"Tu lista tiene: "<< endl;
+        for(int x =0; x< playlist.size(); x++){
+        cout << playlist[x]<<endl;}
+      }else{
+        cout<<"No tenemos esa rola wey"<<endl;
+    }
   }
 
   //terminando la sesion

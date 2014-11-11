@@ -182,7 +182,7 @@ void handleClient(zmsg_t *msg, void * clients){
     zmsg_send(&msg,clients);
     return;
   }
-  if(clnts[tmp] == 20){
+  if(clnts[tmp] == 2){
     _dbg("enviando publicidad");
     clnts[tmp] = 0;
     zmsg_t *publ = zmsg_dup(msg);
