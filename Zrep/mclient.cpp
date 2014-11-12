@@ -1,7 +1,7 @@
 #include <bits/stdc++.h>
 #include <czmq.h>
 #define endl '\n'
-#define _dbg(x) cout<<"----------------------"<<x<<"------------------------"<<endl;
+#define _dbg(x) if(0) cout<<"----------------------"<<x<<"------------------------"<<endl;
 
 
 using namespace std;
@@ -53,7 +53,7 @@ void pedir(string &pedido, void *server){
     if(items[0].revents & ZMQ_POLLIN) {
       //para borrar las canciones despues de reproducirlas
      // system("rm *.mp3");
-      cout << "Ya llego la cancion patron:"<<endl;
+      cout << "Ya llego la cancion :"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
       zmsg_print(incmsg);
       string strout = zmsg_popstr(incmsg);
@@ -72,7 +72,7 @@ void pedir(string &pedido, void *server){
       } else{
         string tmp = "mocp -l ";
         tmp += strout;
-        cout<<"pautaaaa"<<endl;
+        cout<<"pauta publicitaria"<<endl;
         system(tmp.c_str());
         sleep(10);
       }
@@ -88,14 +88,18 @@ y crea lista de canciones
 
 int main(int argc, char** argv) {
   //Creando el contexto y el socket
-  system("mocp -x");
+  string a = "tcp://";
+  a += "localhost";
+  //a += argv[1];
+  a += ":4444";
+  system("mocp -x > /dev/null");
   sleep(0.1);
-  system("mocp -S");
+  system("mocp -S > /dev/null");
   sleep(0.1);
-  system("mocp -c");
+  system("mocp -c > /dev/null");
   zctx_t* context = zctx_new();
   void* server = zsocket_new(context,ZMQ_DEALER);
-  zsocket_connect(server, "tcp://localhost:4444");
+  zsocket_connect(server, a.c_str());
 
   //Enviando mensaje para recibir la lista de musica
   string lista="";
@@ -112,7 +116,7 @@ int main(int argc, char** argv) {
     if(items[0].revents & ZMQ_POLLIN) {
       cout << "Ya llego!!:"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
-      zmsg_print(incmsg);
+      //zmsg_print(incmsg);
       lista = zmsg_popstr(incmsg);
       zmsg_destroy(&incmsg);
       zmsg_destroy(&msg);
@@ -141,7 +145,8 @@ int main(int argc, char** argv) {
         cout<<canciones[i]<<endl;
       continue;
     }
-    if(pedido.compare("play") == 0){
+    if (pedido.compare("play") == 0) {
+      system("rm *.mp3");
       pedir(playlist[x],server);
       string cn = "mocp -l ";
       cn += playlist[x];
@@ -160,6 +165,7 @@ int main(int argc, char** argv) {
       }else{
         cout<<"No tenemos esa rola wey"<<endl;
     }
+    system("clear");
   }
 
   //terminando la sesion

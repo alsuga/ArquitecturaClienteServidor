@@ -151,10 +151,14 @@ trabajo.
 ************************************************************/
 
 int main(){
+  string a = "tcp://";
+  a += "localhost";
+  //a += argv[1];
+  a += ":5555";
   srand (time(NULL));
   zctx_t* context = zctx_new();
   void* server = zsocket_new(context, ZMQ_DEALER);
-  int c = zsocket_connect(server, "tcp://localhost:5555");
+  int c = zsocket_connect(server, a.c_str());
   cout << "connecting to server: " << (c == 0 ? "OK" : "ERROR") << endl;
 
   cout<<"Reportandoce!"<<endl;

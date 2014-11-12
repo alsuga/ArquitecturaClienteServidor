@@ -258,12 +258,14 @@ int main(void) {
     if(items[0].revents & ZMQ_POLLIN){
       cout<<"Mensaje de worker recibido"<<endl;
       zmsg_t *inmsg = zmsg_recv(workers);
+      //thread t(handleWorker,inmsg,clients,workers);
       handleWorker(inmsg, clients,workers);
       cout<<"Mensaje de worker despachado"<<endl;
     }
     if(items[1].revents & ZMQ_POLLIN){
       cout<<"Mensaje del cliente recibido"<<endl;
       zmsg_t *inmsg = zmsg_recv(clients);
+      //thread t(handleClient, inmsg,clients);
       handleClient(inmsg,clients);
       cout<<"Mensaje del cliente despachado"<<endl;
     }

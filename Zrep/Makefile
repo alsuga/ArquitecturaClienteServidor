@@ -15,4 +15,4 @@ server:  mbroker.cpp
 	$(CC) mbroker.cpp -o broker
 
 clean:
-	rm -f client broker musicserver *~ *.mp3
+	rm -f client broker */musicserver musicserver *~ *.mp3
