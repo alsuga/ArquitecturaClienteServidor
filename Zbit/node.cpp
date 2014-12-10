@@ -1,5 +1,9 @@
 #include<bits/stdc++.h>
 #include<czmq.h>
+
+
+#define SIZEOFPART 524288
+
 using namespace std;
 
 /***********************
@@ -13,7 +17,7 @@ void connectNode(void *node,string dirNode);
 void report(zmsg_t *msg);
 
 int main(int argc, const char *argv[]) {
-  //Conecciones
+  //Conexiones
   if(argc > 1)
     myip = argv[1];
   else
@@ -33,16 +37,14 @@ int main(int argc, const char *argv[]) {
   zsocket_connect(tracker,dir.c_str());
   void *listen = zsocket_new(context,ZMQ_REP);
   zsocket_bind(listen,"tcp://*:5555");
-  void *node;
-
+ 
   zmsg_t *msg = zmsg_new();
   zmsg_addstr(msg,"report");
   zmsg_addstr(msg,myip.c_str());
   report(msg);
   zmsg_send(&msg,tracker);
 
-
-
+  zctx_destroy(&context);
   return 0;
 }
 
@@ -84,11 +86,11 @@ void report(zmsg_t *msg){
   string canciones = "";
   DIR *dir;
   struct dirent *ent;
-  vector<string> vec;
   if ((dir = opendir ("canciones")) != NULL) {
     while ((ent = readdir (dir)) != NULL)
-      if( strcmp(ent->d_name,".") != 0 and strcmp(ent->d_name, "..") != 0)
+      if( strcmp(ent->d_name,".") != 0 and strcmp(ent->d_name, "..") != 0){
         zmsg_addstr(msg,ent->d_name);
+      }
     closedir (dir);
   } else {
     /* could not open directory */
@@ -124,7 +126,8 @@ void parser(vector<string> &canciones, string &lista){
  * connectNode
  *********************************************************/
 
-void connectNode(zctx_t *context,void *node,string dirNode){
-  node = zsocket_new(context,ZMQ_REQ);
+void *connectNode(zctx_t *context,string dirNode){
+  void *node = zsocket_new(context,ZMQ_REQ);
   zsocket_connect(node,dirNode.c_str());
+  return node;
 }
