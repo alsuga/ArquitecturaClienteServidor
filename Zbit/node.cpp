@@ -1,6 +1,16 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cstdio>
+#include <cstdlib>
 #include <czmq.h>
+#include <thread>
+#include <mutex>
+#include <set>
+#include <fstream>
+#include <algorithm>
 #include <dirent.h>
+#include <bits/stdc++.h>
 
 
 #define PARTSIZE 524288
@@ -91,7 +101,8 @@ int main(int argc, const char *argv[]) {
       system("moc -s; moc -c");
       //pedir cancion
 
-      vector<string>::iterator it = find(mysongs.begin(), mysongs.end(), playlist[x]);
+      vector<string>::iterator it;
+      it = find(mysongs.begin(), mysongs.end(), playlist[x]);
       if(it != mysongs.end() and *it != playlist[x])
         requestTracker(context,playlist[x],tracker);
       string cn = "rm canciones/";
@@ -166,7 +177,8 @@ void report(zmsg_t *msg){
       if( strcmp(ent->d_name,".") != 0 and strcmp(ent->d_name, "..") != 0){
         mysongs.push_back(ent->d_name);
         zmsg_addstr(msg,ent->d_name);
-        zmsg_addstr(msg,to_string(partir(ent->d_name)).c_str());
+        string tmp = to_string(partir(ent->d_name));
+        zmsg_addstr(msg,tmp.c_str());
       }
     closedir (dir);
   } else {
@@ -209,7 +221,7 @@ void requestTracker(zctx_t *context, string song, void *tracker){
     sng[i].push_back(st);
   }
 
-  sort(sng.begin(), sng.end(),compare);
+  //sort(sng.begin(), sng.end(),compare);
   set<string> act;
   bool flag = true;
   while(flag){
@@ -351,6 +363,6 @@ int partir(string name){
   return out;
 }
 
-bool compare(vector<string> &a,vector<string> &b){
+/*bool compare(const vector<string> &a,const vector<string> &b){
   return (a.size() < b.size());
-}
+}*/
