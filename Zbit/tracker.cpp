@@ -11,11 +11,13 @@ using namespace std;
 // Crear estructura de datos para guardar quien tiene las partes
 map<string,vector< vector<string> > > info;
 
+void handler(zmsg_t *msg,void * clients);
+
 
 int main(int argc, const char *argv[]){
   string dir = "tcp://*:";
   if(argc > 2) dir += argv[1];
-  else dir += "5555";
+  else dir += "4444";
   zctx_t *context = zctx_new();
   void *clients = zsocket_new(context,ZMQ_ROUTER);
   zsocket_bind(clients,dir.c_str());
@@ -26,10 +28,11 @@ int main(int argc, const char *argv[]){
   cout<<"Estamos listos!"<<endl;
 
   while(true ) {
-    zmq_poll(items, 2,10*ZMQ_POLL_MSEC);
+    zmq_poll(items, 1,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN){
       cout<<"Mensaje de worker recibido"<<endl;
       zmsg_t *inmsg = zmsg_recv(clients);
+      zmsg_print(inmsg);
       //thread t(handleWorker,inmsg,clients,workers);
       handler(inmsg,clients);
       cout<<"Mensaje de worker despachado"<<endl;
@@ -48,6 +51,7 @@ void handler(zmsg_t *msg,void * clients){
   zframe_t *dir = zmsg_pop(msg);
   string op = zmsg_popstr(msg);
   if(op == "report"){
+    cout<<"report"<<endl;
     string client = zmsg_popstr(msg),song;
     int nparts;
     while(zmsg_size(msg) > 0){
@@ -60,12 +64,12 @@ void handler(zmsg_t *msg,void * clients){
     }
   }
   if(op == "request"){
-    string song = zmsg_popstr(msg);
-    zmsg_addstr(msg, to_string(info[song].size()));
+    string song = zmsg_popstr(msg),dr = to_string(info[song].size());
+    zmsg_addstr(msg, dr.c_str());
     for(int i = 0; i < info[song].size(); i++){
       zmsg_addstr(msg,"**");
-      for(int j = 0; j < info[song][i].size(); i++){
-        zmsg_addstr(msg,info[song][i][j]);
+      for(int j = 0; j < info[song][i].size(); j++){
+        zmsg_addstr(msg,info[song][i][j].c_str());
       }
     }
     zmsg_prepend(msg,&dir);
@@ -73,6 +77,7 @@ void handler(zmsg_t *msg,void * clients){
   }
 
   if(op == "npart"){
+    cout<<"npart"<<endl;
     string client = zmsg_popstr(msg),song;
     int part;
     song = zmsg_popstr(msg);
@@ -80,7 +85,8 @@ void handler(zmsg_t *msg,void * clients){
     info[song][part].push_back(client);
   }
 
-  if(op = "retire"){
+  if(op == "retire"){
+    cout<<"retire"<<endl;
     string client = zmsg_popstr(msg),song;
     int nparts;
     vector<string>::iterator it;

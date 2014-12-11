@@ -4,6 +4,8 @@
 
 
 #define PARTSIZE 524288
+#define endl '\n'
+#define _dbg(x) if(1) cout<<"----------------------"<<x<<"------------------------"<<endl;
 
 using namespace std;
 
@@ -12,19 +14,31 @@ using namespace std;
  **********************/
 string myip;
 vector<string> mysongs;
+vector<string> playlist;
 int can = 1;
+mutex mt;
 
 
 /***********************
  * Funciones
  **********************/
-void parser(vector<string> &canciones, string &lista);
-void connectNode(void *node,string dirNode);
+void dispatchSong(zmsg_t *request, zmsg_t *response);
+void listening(void *listen);
 void report(zmsg_t *msg);
+void requestTracker(zctx_t *context, string song, void *tracker);
+void connectNode(zctx_t *context,string dirNode,string song, int part,void *tracker, set<string> &act);
+void retire(void *tracker);
 int partir(string name);
+bool compare(vector<string> &a,vector<string> &b);
+
+
+/***********************
+ * MAIN
+ **********************/
 
 int main(int argc, const char *argv[]) {
   //Conexiones
+  system("mocp -x > /dev/null; mocp -S > /dev/null; mocp -c > /dev/null");
   if(argc > 1)
     myip = argv[1];
   else
@@ -49,10 +63,52 @@ int main(int argc, const char *argv[]) {
   zmsg_addstr(msg,"report");
   zmsg_addstr(msg,myip.c_str());
   report(msg);
+  //zmsg_print(msg);
   zmsg_send(&msg,tracker);
 
   //MENU
   thread t(listening,listen);
+
+
+  string pedido = "";
+  int x = 0;
+  while(true){
+    cout<<"\"agregar\"  agregar a la lista de reproduccion, \"desconectar\" para salir y ";
+    cout<<"\"play\" para reproducir la lista"<<endl;
+    cin>>pedido;
+    if(pedido.compare("agregar") == 0){
+      string ns; cin>>ns;
+      playlist.push_back(ns);
+      continue;
+    }
+    if(pedido.compare("desconectar") == 0){
+      system("mocp -x");
+      retire(tracker);
+      cout<<"Chao"<<endl;
+      break;
+    }
+    if (pedido.compare("play") == 0) {
+      system("moc -s; moc -c");
+      //pedir cancion
+      //pedir(playlist[x],server);
+      vector<string>::iterator it = find(mysongs.begin(), mysongs.end(), playlist[x]);
+
+      //if(it != mysongs.end() and *it != playlist[x])
+        requestTracker(context,playlist[x],tracker);
+      string cn = "rm canciones/";
+      cn += playlist[x];
+      //system(cn.c_str());
+      cn = "mocp -a canciones/";
+      cn += playlist[x].substr(0,playlist[x].size()-4);
+      cn +="*";
+      _dbg(cn);
+      system(cn.c_str());
+      system("mocp -p");
+      x = (x+1) % playlist.size();
+      continue;
+    }
+    system("clear");
+  }
 
   zctx_destroy(&context);
   return 0;
@@ -64,11 +120,13 @@ int main(int argc, const char *argv[]) {
 **************************************/
 
 void dispatchSong(zmsg_t *request, zmsg_t *response){
+  cout<<"entro aca"<<endl;
   string name = zmsg_popstr(request);
   string part =zmsg_popstr(request);
-  zmsg_addstr(response,name.c_str());
-  zmsg_addstr(response,part.c_str());
-
+  //zmsg_addstr(response,name.c_str());
+  //zmsg_addstr(response,part.c_str());
+  name = name.substr(0,name.size()-4);
+  if(atoi(part.c_str()) < 10) name += "0";
   name+=part;
   name+=".mp3";
   string a = "./canciones/";
@@ -82,9 +140,11 @@ void dispatchSong(zmsg_t *request, zmsg_t *response){
   zmsg_append(response,&frame);
 }
 
+
 void listening(void *listen){
   while(can){
     zmsg_t* request = zmsg_recv(listen);
+    zmsg_print(request);
     zmsg_t* response = zmsg_new();
     dispatchSong(request,response);
     zmsg_send(&response,listen);
@@ -123,34 +183,50 @@ void report(zmsg_t *msg){
  * Request
  *********************************************************/
 
-void requestTracker(string song,void *tracker){
+void requestTracker(zctx_t *context, string song, void *tracker){
   zmsg_t *msg = zmsg_new();
   zmsg_addstr(msg,"request");
   zmsg_addstr(msg,song.c_str());
   zmsg_send(&msg,tracker);
-  zmq_pollitem_t items[] = {{server, 0, ZMQ_POLLIN, 0}};
+  zmq_pollitem_t items[] = {{tracker, 0, ZMQ_POLLIN, 0}};
   zmsg_t *incmsg;
   while(true) {
     zmq_poll(items,1,10*ZMQ_POLL_MSEC);
     if(items[0].revents & ZMQ_POLLIN) {
-      incmsg = zmsg_recv(server);
-      zmsg_print(incmsg);
+      incmsg = zmsg_recv(tracker);
       break;
     }
   }
-  string strout = zmsg_popstr(incmsg),st;
+
+  string st;
   int i = -1,parts = atoi(zmsg_popstr(incmsg));
   vector<vector<string> > sng(parts);
-  while(zmsg_size(msg) > 0){
-    st = zmsg_popstr(msg);
+  while(zmsg_size(incmsg) > 0){
+    st = zmsg_popstr(incmsg);
     if(st == "**") {
       i++;
       continue;
     }
-    parts[i].push_back(st);
+    sng[i].push_back(st);
   }
-  sort(sng.begin(), sng.end(),compare);
 
+  sort(sng.begin(), sng.end(),compare);
+  set<string> act;
+  bool flag = true;
+  while(flag){
+    for(int i = 0; i < sng.size(); i++){
+      flag = false;
+      for(int j = 0; j < sng[i].size(); j++) {
+        flag = true;
+        if(act.count(sng[i][j]) == 0) {
+          string dirNode = sng[i][j];
+          sng[i].clear();
+          act.insert(dirNode);
+          connectNode(context, dirNode,song,i,tracker,act);
+        }
+      }
+    }
+  }
 }
 
 
@@ -160,24 +236,57 @@ void requestTracker(string song,void *tracker){
  * connectNode
  *********************************************************/
 
-void connectNode(zctx_t *context,string dirNode,string song, int part,void *tracker){
+void connectNode(zctx_t *context,string dirNode,string song, int part,void *tracker, set<string> &act){
+  string dir = "tcp://";
+  dir+=dirNode;
+  dir+=":5555";
+  cout<<dir<<endl;
   void *node = zsocket_new(context,ZMQ_REQ);
-  zsocket_connect(node,dirNode.c_str());
+  zsocket_connect(node,dir.c_str());
   
   zmsg_t *msg = zmsg_new();
+  zmsg_addstr(msg,song.c_str());
+  zmsg_addstr(msg,to_string(part).c_str());
+  zmsg_print(msg);
+  zmsg_send(&msg,node);
+  zmsg_t *resp = zmsg_recv(node);
 
+  string name = song.substr(0,song.size()-4);
+  if(part < 10) name += "0";
+  name += to_string(part);
+  name += ".mp3";
 
+  zframe_t* dato;
+  zfile_t *download = zfile_new("./canciones/", name.c_str());
+  zfile_output(download);
+  dato = zmsg_pop(resp);
+  
+  zchunk_t *chunk = zchunk_new(zframe_data(dato), zframe_size(dato)); 
+  zfile_write(download, chunk, 0);
+  zfile_close(download);
+  zmsg_destroy(&msg);
+  zmsg_destroy(&resp);
+  zframe_destroy(&dato);
+
+  //nueva parte
   zmsg_t *msgT = zmsg_new();
   zmsg_addstr(msgT,"npart");
   zmsg_addstr(msgT,myip.c_str());
   zmsg_addstr(msgT,song.c_str());
-  zmsg_addstr(msgT,to_string(part).c_str());
+  string tmp = to_string(part);
+  zmsg_addstr(msgT,tmp.c_str());
   zmsg_send(&msgT,tracker);
+
+  mt.lock();
+  act.erase(dirNode);
+  mt.unlock();
 }
 
 void retire(void *tracker){
   zmsg_t *msg = zmsg_new();
+  mt.lock();
   can = 0;
+  mt.unlock();
   zmsg_addstr(msg,"retire");
   zmsg_addstr(msg,myip.c_str());
   for(int i = 0; i < mysongs.size(); i++) zmsg_addstr(msg,mysongs[i].c_str());
@@ -222,6 +331,7 @@ int partir(string name){
     }
     buffer = new char[sizept];
     nname = name;
+    if(actpart < 10) nname += "0";
     nname += to_string(actpart++);
     nname += ".mp3"; 
     ofstream outfile (nname.c_str(),ofstream::binary);
