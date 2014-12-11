@@ -15,7 +15,7 @@ using namespace std;
 string myip;
 vector<string> mysongs;
 vector<string> playlist;
-int can = 1;
+int can = 1,latencia;
 mutex mt;
 
 
@@ -45,20 +45,22 @@ int main(int argc, const char *argv[]) {
     myip = "localhost";
   string dir = "tcp://";
   if(argc > 2)
-    dir += argv[1];
+    dir += argv[2];
   else
     dir += "localhost";
   dir += ":";
   if(argc > 3)
-    dir += argv[2];
+    dir += argv[3];
   else
     dir += "4444";
+
   zctx_t *context = zctx_new();
   void *tracker = zsocket_new(context, ZMQ_DEALER);
   zsocket_connect(tracker,dir.c_str());
   void *listen = zsocket_new(context,ZMQ_REP);
   zsocket_bind(listen,"tcp://*:5555");
- 
+  cout<<"Ingrese la latencia"<<endl;
+  cin>>latencia;
   zmsg_t *msg = zmsg_new();
   zmsg_addstr(msg,"report");
   zmsg_addstr(msg,myip.c_str());
@@ -146,6 +148,7 @@ void listening(void *listen){
     zmsg_print(request);
     zmsg_t* response = zmsg_new();
     dispatchSong(request,response);
+    sleep(latencia);
     zmsg_send(&response,listen);
   }
 }
