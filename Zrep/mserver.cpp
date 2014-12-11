@@ -162,7 +162,7 @@ int main(){
   cout << "connecting to server: " << (c == 0 ? "OK" : "ERROR") << endl;
 
   cout<<"Reportandoce!"<<endl;
-  
+
   if(listar(server) ) cout<<"Reportado!"<<endl;
   else{
     cout<<"Error listando"<<endl;
@@ -176,7 +176,7 @@ int main(){
     if(items[0].revents & ZMQ_POLLIN) {
       cout << "Tengo trabajo!!"<<endl;
       zmsg_t *incmsg = zmsg_recv(server);
-      
+
       zmsg_print(incmsg);
       dispatcher(incmsg,server);
       zmsg_destroy(&incmsg);

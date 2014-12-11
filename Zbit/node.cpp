@@ -1,8 +1,9 @@
-#include<bits/stdc++.h>
-#include<czmq.h>
+#include <bits/stdc++.h>
+#include <czmq.h>
+#include <dirent.h>
 
 
-#define SIZEOFPART 524288
+#define PARTSIZE 524288
 
 using namespace std;
 
@@ -12,9 +13,13 @@ using namespace std;
 string myip;
 
 
+/***********************
+ * Funciones
+ **********************/
 void parser(vector<string> &canciones, string &lista);
 void connectNode(void *node,string dirNode);
 void report(zmsg_t *msg);
+int partir(string name);
 
 int main(int argc, const char *argv[]) {
   //Conexiones
@@ -42,8 +47,7 @@ int main(int argc, const char *argv[]) {
   zmsg_addstr(msg,"report");
   zmsg_addstr(msg,myip.c_str());
   report(msg);
-  zmsg_send(&msg,tracker);
-
+  //zmsg_send(&msg,tracker);
   zctx_destroy(&context);
   return 0;
 }
@@ -83,13 +87,14 @@ void listening(void *listen){
 
 
 void report(zmsg_t *msg){
-  string canciones = "";
+  string canciones;
   DIR *dir;
   struct dirent *ent;
   if ((dir = opendir ("canciones")) != NULL) {
     while ((ent = readdir (dir)) != NULL)
       if( strcmp(ent->d_name,".") != 0 and strcmp(ent->d_name, "..") != 0){
         zmsg_addstr(msg,ent->d_name);
+        zmsg_addstr(msg,to_String(partir(ent->d_name));
       }
     closedir (dir);
   } else {
@@ -100,28 +105,6 @@ void report(zmsg_t *msg){
   //zmsg_print(msg);
 }
 
-/************************************************************
-* parser
-* vector<string> canciones : vector con la lista de canciones
-* string lista : lista de canciones recibida del broker
-* parcea la cadena buscando el ";" que indica el final de
-* la cancion y saca su nombre y lo pone en la lista
-* que al final ordena
-************************************************************/
-void parser(vector<string> &canciones, string &lista){
-  size_t pos,ant = 0;
-  string act;
-  while(true){
-    pos = lista.find(";",ant);
-    if(pos == string::npos) break;
-    act = lista.substr(ant,pos-ant-4);
-    if(!binary_search(canciones.begin(), canciones.end(),act))
-    canciones.push_back(act);
-    ant = pos+1;
-  }
-  sort(canciones.begin(), canciones.end());
-}
-
 /**********************************************************
  * connectNode
  *********************************************************/
@@ -130,4 +113,54 @@ void *connectNode(zctx_t *context,string dirNode){
   void *node = zsocket_new(context,ZMQ_REQ);
   zsocket_connect(node,dirNode.c_str());
   return node;
+}
+
+
+/***********************************************
+ * Split mp3
+ **********************************************/
+
+int partir(string name){
+  string nname;
+  char * buffer;
+  long size,out,actpart = 0,sizept;
+  nname = "canciones/";
+  nname += name;
+  name = nname;
+  ifstream infile (name.c_str(),ifstream::binary);
+  name = name.substr(0,name.size()-4);
+  // get size of file
+  infile.seekg(0,infile.end);
+  size=infile.tellg();
+  infile.seekg(0,infile.beg);
+  out = ceil(size/(double)PARTSIZE);
+  //halfSize = static_cast<int>(size - PARTSIZE);
+  // allocate memory for file content
+  while(size){
+    if(PARTSIZE < size) {
+      size-= PARTSIZE;
+      sizept = PARTSIZE;
+    }else{
+      sizept = size;
+      size = 0;
+    }
+    buffer = new char[sizept];
+    nname = name;
+    nname += to_string(actpart++);
+    nname += ".mp3"; 
+    ofstream outfile (nname.c_str(),ofstream::binary);
+
+    // read content of infile
+    infile.read (buffer,sizept);
+    infile.seekg((sizept*actpart)+1);
+
+    // write to outfile
+    outfile.write (buffer,sizept);
+
+    // release dynamically-allocated memory
+    delete[] buffer;
+    outfile.close();
+  }
+  infile.close();
+  return out;
 }

@@ -1,7 +1,7 @@
-#include<bits/stdc++.h>
-#include<czmq.h>
+#include <bits/stdc++.h>
+#include <czmq.h>
 
-#define SIZEOFPART 524288
+#define PARTSIZE 524288
 #define endl '\n'
 #define _dbg(x) if(1) cout<<"----------------------"<<x<<"------------------------"<<endl;
 
@@ -9,7 +9,7 @@
 using namespace std;
 
 // Crear estructura de datos para guardar quien tiene las partes
-map<string,map<int,vector<string> > > info;
+map<string,vector< vector<string> > > info;
 
 
 int main(int argc, const char *argv[]){
@@ -31,7 +31,7 @@ int main(int argc, const char *argv[]){
       cout<<"Mensaje de worker recibido"<<endl;
       zmsg_t *inmsg = zmsg_recv(clients);
       //thread t(handleWorker,inmsg,clients,workers);
-      //handleClient(inmsg, clients);
+      handler(inmsg);
       cout<<"Mensaje de worker despachado"<<endl;
     }
   }
@@ -46,12 +46,39 @@ void handler(zmsg_t *msg){
   string op = zmsg_popstr(msg);
   if(op == "report"){
     string client = zmsg_popstr(msg),song;
+    int nparts;
     while(zmsg_size(msg) > 0){
       song = zmsg_popstr(msg);
+      nparts = atoi(zmsg_popstr(msg));
+      if(info[song].size() == 0) info[song].resize(nparts);
+      for(int i = 0; i < nparts; i++){
+        info[song][i].push_back(client);
+      }
     }
   }
   if(op == "request"){
+    string song = zmsg_popstr(msg);
+    for(int i = 0; i < info[song].size(); i++){
+      
+    }
   }
   if(op == "npart"){
+    string client = zmsg_popstr(msg),song;
+    int part;
+    song = zmsg_popstr(msg);
+    part = atoi(zmsg_popstr(msg));
+    info[song][part].push_back(client);
+  }
+  if(op = "retire"){
+    string client = zmsg_popstr(msg),song;
+    int nparts;
+    vector<string>::iterator it;
+    while(zmsg_size(msg) > 0){
+      song = zmsg_popstr(msg);
+      for(int i = 0; i < info[song].size() ; i++){
+        it = find(info[song][i].begin(),info[song][i].end(),client);
+        if(it != info[song][i].end()) info[song][i].erase(it);
+      }
+    }
   }
 }
