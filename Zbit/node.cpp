@@ -11,6 +11,8 @@ using namespace std;
  * Variables Globales
  **********************/
 string myip;
+vector<string> mysongs;
+int can = 1;
 
 
 /***********************
@@ -50,11 +52,16 @@ int main(int argc, const char *argv[]) {
   zmsg_send(&msg,tracker);
 
   //MENU
-  
+  thread t(listening,listen);
 
   zctx_destroy(&context);
   return 0;
 }
+
+
+/**************************************
+* COMPARTIENDO CANCIONES
+**************************************/
 
 void dispatchSong(zmsg_t *request, zmsg_t *response){
   string name = zmsg_popstr(request);
@@ -76,7 +83,7 @@ void dispatchSong(zmsg_t *request, zmsg_t *response){
 }
 
 void listening(void *listen){
-  while(1){
+  while(can){
     zmsg_t* request = zmsg_recv(listen);
     zmsg_t* response = zmsg_new();
     dispatchSong(request,response);
@@ -84,10 +91,11 @@ void listening(void *listen){
   }
 }
 
+
+
 /****************************
  * Report
- *
- ****************************/
+ *****************************/
 
 
 void report(zmsg_t *msg){
@@ -97,8 +105,9 @@ void report(zmsg_t *msg){
   if ((dir = opendir ("canciones")) != NULL) {
     while ((ent = readdir (dir)) != NULL)
       if( strcmp(ent->d_name,".") != 0 and strcmp(ent->d_name, "..") != 0){
+        mysongs.push_back(ent->d_name);
         zmsg_addstr(msg,ent->d_name);
-        zmsg_addstr(msg,to_String(partir(ent->d_name));
+        zmsg_addstr(msg,to_string(partir(ent->d_name)).c_str());
       }
     closedir (dir);
   } else {
@@ -109,15 +118,78 @@ void report(zmsg_t *msg){
   //zmsg_print(msg);
 }
 
+
+/**********************************************************
+ * Request
+ *********************************************************/
+
+void requestTracker(string song,void *tracker){
+  zmsg_t *msg = zmsg_new();
+  zmsg_addstr(msg,"request");
+  zmsg_addstr(msg,song.c_str());
+  zmsg_send(&msg,tracker);
+  zmq_pollitem_t items[] = {{server, 0, ZMQ_POLLIN, 0}};
+  zmsg_t *incmsg;
+  while(true) {
+    zmq_poll(items,1,10*ZMQ_POLL_MSEC);
+    if(items[0].revents & ZMQ_POLLIN) {
+      incmsg = zmsg_recv(server);
+      zmsg_print(incmsg);
+      break;
+    }
+  }
+  string strout = zmsg_popstr(incmsg),st;
+  int i = -1,parts = atoi(zmsg_popstr(incmsg));
+  vector<vector<string> > sng(parts);
+  while(zmsg_size(msg) > 0){
+    st = zmsg_popstr(msg);
+    if(st == "**") {
+      i++;
+      continue;
+    }
+    parts[i].push_back(st);
+  }
+  sort(sng.begin(), sng.end(),compare);
+
+}
+
+
+
+
 /**********************************************************
  * connectNode
  *********************************************************/
 
-void *connectNode(zctx_t *context,string dirNode){
+void connectNode(zctx_t *context,string dirNode,string song, int part,void *tracker){
   void *node = zsocket_new(context,ZMQ_REQ);
   zsocket_connect(node,dirNode.c_str());
-  return node;
+  
+  zmsg_t *msg = zmsg_new();
+
+
+  zmsg_t *msgT = zmsg_new();
+  zmsg_addstr(msgT,"npart");
+  zmsg_addstr(msgT,myip.c_str());
+  zmsg_addstr(msgT,song.c_str());
+  zmsg_addstr(msgT,to_string(part).c_str());
+  zmsg_send(&msgT,tracker);
 }
+
+void retire(void *tracker){
+  zmsg_t *msg = zmsg_new();
+  can = 0;
+  zmsg_addstr(msg,"retire");
+  zmsg_addstr(msg,myip.c_str());
+  for(int i = 0; i < mysongs.size(); i++) zmsg_addstr(msg,mysongs[i].c_str());
+  zmsg_send(&msg,tracker);
+}
+
+
+/**********************************************
+ *
+ *                       UTILIDADES
+ *
+ **********************************************/
 
 
 /***********************************************
@@ -167,4 +239,8 @@ int partir(string name){
   }
   infile.close();
   return out;
+}
+
+bool compare(vector<string> &a,vector<string> &b){
+  return (a.size() < b.size());
 }
