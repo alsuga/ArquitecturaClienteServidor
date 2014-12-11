@@ -100,12 +100,12 @@ int main(int argc, const char *argv[]) {
       break;
     }
     if (pedido.compare("play") == 0) {
-      system("moc -s; moc -c");
+      system("mocp -s; mocp -c");
       //pedir cancion
 
       vector<string>::iterator it;
       it = find(mysongs.begin(), mysongs.end(), playlist[x]);
-      if(it != mysongs.end() and *it != playlist[x])
+      //if(it != mysongs.end() and *it != playlist[x])
         requestTracker(context,playlist[x],tracker);
       string cn = "rm canciones/";
       cn += playlist[x];
@@ -202,6 +202,7 @@ void requestTracker(zctx_t *context, string song, void *tracker){
   zmsg_t *msg = zmsg_new();
   zmsg_addstr(msg,"request");
   zmsg_addstr(msg,song.c_str());
+  zmsg_print(msg);
   zmsg_send(&msg,tracker);
   zmq_pollitem_t items[] = {{tracker, 0, ZMQ_POLLIN, 0}};
   zmsg_t *incmsg;
