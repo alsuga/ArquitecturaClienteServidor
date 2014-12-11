@@ -90,10 +90,9 @@ int main(int argc, const char *argv[]) {
     if (pedido.compare("play") == 0) {
       system("moc -s; moc -c");
       //pedir cancion
-      //pedir(playlist[x],server);
-      vector<string>::iterator it = find(mysongs.begin(), mysongs.end(), playlist[x]);
 
-      //if(it != mysongs.end() and *it != playlist[x])
+      vector<string>::iterator it = find(mysongs.begin(), mysongs.end(), playlist[x]);
+      if(it != mysongs.end() and *it != playlist[x])
         requestTracker(context,playlist[x],tracker);
       string cn = "rm canciones/";
       cn += playlist[x];
@@ -227,6 +226,7 @@ void requestTracker(zctx_t *context, string song, void *tracker){
       }
     }
   }
+  mysongs.push_back(song);
 }
 
 
