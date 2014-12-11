@@ -153,6 +153,7 @@ void dispatchSong(zmsg_t *request, zmsg_t *response){
 
 void listening(void *listen){
   while(can){
+    cout<<"listen"<<endl;
     zmsg_t* request = zmsg_recv(listen);
     zmsg_print(request);
     zmsg_t* response = zmsg_new();
