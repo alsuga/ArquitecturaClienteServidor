@@ -31,7 +31,7 @@ int main(int argc, const char *argv[]){
       cout<<"Mensaje de worker recibido"<<endl;
       zmsg_t *inmsg = zmsg_recv(clients);
       //thread t(handleWorker,inmsg,clients,workers);
-      handler(inmsg);
+      handler(inmsg,clients);
       cout<<"Mensaje de worker despachado"<<endl;
     }
   }
@@ -39,9 +39,12 @@ int main(int argc, const char *argv[]){
   return 0;
 }
 
+/*****************************************
+* FUNCIONES!
+*****************************************/
 
 
-void handler(zmsg_t *msg){
+void handler(zmsg_t *msg,void * clients){
   zframe_t *dir = zmsg_pop(msg);
   string op = zmsg_popstr(msg);
   if(op == "report"){
@@ -58,10 +61,17 @@ void handler(zmsg_t *msg){
   }
   if(op == "request"){
     string song = zmsg_popstr(msg);
+    zmsg_addstr(msg, to_string(info[song].size()));
     for(int i = 0; i < info[song].size(); i++){
-      
+      zmsg_addstr(msg,"**");
+      for(int j = 0; j < info[song][i].size(); i++){
+        zmsg_addstr(msg,info[song][i][j]);
+      }
     }
+    zmsg_prepend(msg,&dir);
+    zmsg_send(&msg,clients);
   }
+
   if(op == "npart"){
     string client = zmsg_popstr(msg),song;
     int part;
@@ -69,6 +79,7 @@ void handler(zmsg_t *msg){
     part = atoi(zmsg_popstr(msg));
     info[song][part].push_back(client);
   }
+
   if(op = "retire"){
     string client = zmsg_popstr(msg),song;
     int nparts;

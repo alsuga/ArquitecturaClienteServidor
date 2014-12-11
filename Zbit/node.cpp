@@ -47,7 +47,11 @@ int main(int argc, const char *argv[]) {
   zmsg_addstr(msg,"report");
   zmsg_addstr(msg,myip.c_str());
   report(msg);
-  //zmsg_send(&msg,tracker);
+  zmsg_send(&msg,tracker);
+
+  //MENU
+  
+
   zctx_destroy(&context);
   return 0;
 }
